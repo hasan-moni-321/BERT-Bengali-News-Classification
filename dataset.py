@@ -3,9 +3,9 @@ import torch
 
 
 class BERTDataset:
-    def __init__(self, reviews, targets, tokenizer, maxlen):
-        self.review = review
-        self.target = target
+    def __init__(self, reviews, targets, tokenizer, max_len):
+        self.review = reviews
+        self.target = targets
         self.tokenizer = tokenizer
         self.max_len = max_len
 
