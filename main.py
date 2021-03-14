@@ -3,6 +3,7 @@ import pandas as pd
 from collections import defaultdict
 
 from sklearn.utils import shuffle
+from sklearn.model_selection import train_test_split
 
 import torch 
 from torch.utils.data import DataLoader
@@ -21,7 +22,7 @@ df = config.dataset()
 
 
 # Shuffle dataset
-df = shuffle(df)
+df = shuffle(df).reset_index(drop=True)
 print(df.head()) 
 
 # Categorical to Numerical
@@ -29,8 +30,14 @@ print(df['category'].value_counts())
 
 
 d = {"bangladesh": 1, "sports": 2, "international": 3, "entertainment": 4, "economy": 5, "opinion": 6, "technology": 7, "lifestyle": 8}
-df['sentiment'] = df['sentiment'].map(d)
+df['category'] = df['category'].map(d)
 #df_class2 = df['sentiment'].value_counts()
+
+# Dropping duplicated
+df.drop_duplicates(inplace=True) 
+
+# Dropping null 
+df.dropna(inplace=True)
 
 
 # Dividing dataset
@@ -43,8 +50,8 @@ df_val, df_test = train_test_split(df_test, test_size=0.2, random_state=101)
 def create_data_loader(df, tokenizer, max_len, batch_size):
 
     ds = dataset.BERTDataset(
-                            reviews=df.review.to_numpy(),
-                            targets=df.sentiment.to_numpy(),
+                            reviews=df.content.to_numpy(),
+                            targets=df.category.to_numpy(),
                             tokenizer=tokenizer,
                             max_len=max_len
                             )
@@ -63,12 +70,12 @@ test_data_loader = create_data_loader(df_test, config.tokenizer, config.max_len,
 
 # Model
 device = config.device
-EPOCHS = config.epoch
+epochs = config.epoch
 model = model.BERTBaseUncased()
 model.to(device) 
 
 
-# Hyperparameter
+# Hyperparameter Tuning 
 param_optimizer = list(model.named_parameters())
 no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight']
 optimizer_grouped_parameters = [
@@ -78,7 +85,7 @@ optimizer_grouped_parameters = [
 
 
 optimizer = AdamW(optimizer_grouped_parameters, lr=3e-5)
-total_steps = len(train_data_loader) * EPOCHS
+total_steps = len(train_data_loader) * epochs
 
 scheduler = get_linear_schedule_with_warmup(
         optimizer, num_warmup_steps=0, num_training_steps=total_steps
@@ -86,21 +93,21 @@ scheduler = get_linear_schedule_with_warmup(
 
 
 best_accuracy = 0
-for epoch in range(config.EPOCHS):
+for epoch in range(config.epochs):
     engine.train_fn(train_data_loader, model, optimizer, device, scheduler, epoch)
-    outputs, targets = engine.eval_fn(valid_data_loader, model, device)
+    outputs, targets = engine.eval_fn(val_data_loader, model, device)
 
     outputs = np.array(targets) >= 0.5 
 
-    accuracy = metrics.roc_auc_score(targets, outputs)
+    #accuracy = metrics.roc_auc_score(targets, outputs)
     accuracy2 = metrics.accuracy_score(targets, outputs)
-    f1_score_micro = metrics.f1_score(targets, outputs, average='micro')
-    f1_score_macro = metrics.f1_score(targets, outputs, average='macro')
+    #f1_score_micro = metrics.f1_score(targets, outputs, average='micro')
+    #f1_score_macro = metrics.f1_score(targets, outputs, average='macro')
 
-    print(f"Epoch = {epoch}, roc_auc Score = {accuracy}")
+    #print(f"Epoch = {epoch}, roc_auc Score = {accuracy}")
     print(f"Epoch = {epoch}, Accuracy Score = {accuracy2}")
-    print(f"Epoch = {epoch}, f1_micro Score = {f1_score_micro}")
-    print(f"Epoch = {epoch}, f1_macro Score = {f1_score_macro}")
+    #print(f"Epoch = {epoch}, f1_micro Score = {f1_score_micro}")
+    #print(f"Epoch = {epoch}, f1_macro Score = {f1_score_macro}")
 
     if accuracy > best_accuracy:
         torch.save(model.state_dict(), config.model_path) 
