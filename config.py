@@ -12,7 +12,7 @@ def dataset():
 
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-epoch = 5
+epochs = 5
 max_len = 512
 batch_size = 4
 
